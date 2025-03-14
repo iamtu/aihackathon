@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Racing Game</title>
+    <style>
+        body { text-align: center; font-family: Arial, sans-serif; }
+        canvas { background: gray; display: block; margin: auto; }
+        #restartBtn { display: none; margin-top: 10px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    </style>
+    
+</head>
+<body>
+    <h1>Car Racing Game</h1>
+    <h2>Score: <span id="score">0</span></h2>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <button id="restartBtn" onclick="restartGame()">Restart</button>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const restartBtn = document.getElementById("restartBtn");
+        const scoreDisplay = document.getElementById("score");
+        
+        let car, obstacles, gameOver, frame, score, speed;
+        let keys = {};
+        let carImage = new Image();
+        let obstacleImage = new Image();
+        carImage.src = "190175.png"; // Đặt ảnh xe thật
+        obstacleImage.src = "190171.png"; // Đặt ảnh xe chướng ngại vật
+        
+        function initGame() {
+            car = { x: 180, y: 500, width: 40, height: 60, speed: 5 };
+            obstacles = [];
+            gameOver = false;
+            frame = 0;
+            score = 0;
+            speed = 5;
+            restartBtn.style.display = "none";
+            scoreDisplay.textContent = score;
+            updateGame();
+        }
+        
+        function drawCar() {
+            ctx.drawImage(carImage, car.x, car.y, car.width, car.height);
+        }
+        
+        function drawObstacles() {
+            obstacles.forEach(obs => ctx.drawImage(obstacleImage, obs.x, obs.y, obs.width, obs.height));
+        }
+        
+        function updateObstacles() {
+            if (frame % 60 === 0) {
+                let obsWidth = 50;
+                let obsHeight = 80;
+                let obsX = Math.random() * (canvas.width - obsWidth);
+                obstacles.push({ x: obsX, y: 0, width: obsWidth, height: obsHeight });
+                score++;
+                speed += 0.1;
+            }
+            obstacles.forEach(obs => obs.y += speed);
+            obstacles = obstacles.filter(obs => obs.y < canvas.height);
+            scoreDisplay.textContent = score;
+        }
+        
+        function checkCollision() {
+            obstacles.forEach(obs => {
+                if (
+                    car.x < obs.x + obs.width &&
+                    car.x + car.width > obs.x &&
+                    car.y < obs.y + obs.height &&
+                    car.y + car.height > obs.y
+                ) {
+                    gameOver = true;
+                }
+            });
+            if (gameOver) restartBtn.style.display = "block";
+        }
+        
+        function updateGame() {
+            if (gameOver) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (keys["ArrowLeft"] && car.x > 0) car.x -= car.speed;
+            if (keys["ArrowRight"] && car.x + car.width < canvas.width) car.x += car.speed;
+            
+            updateObstacles();
+            checkCollision();
+            
+            drawCar();
+            drawObstacles();
+            
+            frame++;
+            requestAnimationFrame(updateGame);
+        }
+        
+        function restartGame() {
+            initGame();
+        }
+        
+        document.addEventListener("keydown", (event) => {
+            keys[event.key] = true;
+        });
+        
+        document.addEventListener("keyup", (event) => {
+            keys[event.key] = false;
+        });
+        
+        initGame();
+    </script>
+</body>
+</html>

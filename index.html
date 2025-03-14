@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trang Grid Layout</title>
+  <style>
+    /* Đặt kiểu cho toàn bộ trang */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+
+    /* Tạo kiểu cho container grid */
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 20px;
+      padding: 20px;
+    }
+
+    /* Tạo kiểu cho mỗi item trong grid */
+    .grid-item {
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s, box-shadow 0.3s;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    /* Khi hover vào item */
+    .grid-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Đặt nội dung bên trong mỗi item */
+    .grid-item img {
+      width: 100%;
+      height: 400px; /* Tăng chiều cao của ảnh lên 400px */
+      object-fit: cover;
+    }
+
+    .grid-item h3 {
+      margin: 16px;
+      color: #333;
+    }
+
+    .grid-item p {
+      margin: 16px;
+      color: #777;
+    }
+
+    /* Đặt kiểu cho các liên kết */
+    .grid-item a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- Thêm ảnh banner -->
+  
+
+  <div class="grid-container">
+    <div class="grid-item">
+      <a href="https://www.google.com" target="_blank">
+        <img src="0000438c-7fdd-4bd3-82e3-13849882db2f.jpeg" alt="Item 1">
+        <h3>Trang Google</h3>
+        <p>Nhấp vào để truy cập Google</p>
+      </a>
+    </div>
+
+    <div class="grid-item">
+      <a href="car/car.html" target="_blank">
+        <img src="09aaf301-14a2-4dee-ba1f-a8d8277dcd18.jpeg" alt="Item 2">
+        <h3>Đua xe</h3>
+        <p>Nhấp vào để truy cập đua xe</p>
+      </a>
+    </div>
+
+    <div class="grid-item">
+      <a href="https://www.youtube.com" target="_blank">
+        <img src="5faab1c2-9bf5-42b9-86b7-01ec3f057a99.jpeg" alt="Item 3">
+        <h3>Trang YouTube</h3>
+        <p>Nhấp vào để truy cập YouTube</p>
+      </a>
+    </div>
+
+    <div class="grid-item">
+      <a href="caro/caro.html" target="_blank">
+        <img src="6d58f25b-db14-4d96-acd1-c9df1b848295.jpeg" alt="Item 4">
+        <h3>Cờ Caro</h3>
+        <p>Nhấp vào để chơi cờ caro</p>
+      </a>
+    </div>
+
+    <div class="grid-item">
+      <a href="https://www.github.com" target="_blank">
+        <img src="da90ae7d-c7dd-4161-8a29-8f41e2f0dde0.jpeg" alt="Item 5">
+        <h3>Trang GitHub</h3>
+        <p>Nhấp vào để truy cập GitHub</p>
+      </a>
+    </div>
+    
+    <div class="grid-item">
+      <a href="flappybird/flappy.html" target="_blank">
+        <img src="48fd8865-26fd-46b6-b7d7-4d8727af57c8.jpeg" alt="Item 5">
+        <h3>flappy bird</h3>
+        <p>Nhấp vào để truy cập flappy bird</p>
+      </a>
+    </div>
+  </div>
+
+</body>
+</html>
