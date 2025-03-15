@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flappy Bird</title>
+    <style>
+        #gameCanvas {
+            border: 1px solid black;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+         // Load images
+        const birdImg = new Image();
+        birdImg.src = 'bird.png'; // Bird image
+
+        const pipeTopImg = new Image();
+        pipeTopImg.src = 'top.png'; // Top pipe image
+
+        const pipeBottomImg = new Image();
+        pipeBottomImg.src = 'bottom.png'; // Bottom pipe image
+
+        const groundImg = new Image();
+        groundImg.src = 'ground.png'; // Ground image (đặt trong cùng thư mục)
+
+        // Game variables
+        const bird = {
+            x: 50,
+            y: 300,
+            width: 64,
+            height: 50,
+            velocity: 0,
+            gravity: 0.3,    // Giảm từ 0.5 xuống 0.3
+            jump: -5        // Tăng từ -10 lên -12 (nhảy cao hơn)
+        };
+
+        let pipes = [];
+        const pipeWidth = 52;
+        const pipeGap = 200; // Tăng từ 150 lên 200
+        let score = 0;
+        let gameOver = false;
+        let imagesLoaded = 0;
+
+        // Pipe constructor
+        function Pipe() {
+            this.x = canvas.width;
+            this.height = Math.random() * (canvas.height - pipeGap - 100) + 50;
+            this.speed = 1.5; // Giảm từ 2 xuống 1.5
+        }
+
+        // Game controls
+        document.addEventListener('keydown', function(e) {
+            if (e.code === 'Space' && !gameOver) {
+                bird.velocity = bird.jump;
+            }
+            if (e.code === 'KeyR' && gameOver) {
+                resetGame();
+            }
+        });
+
+        // Add new pipe
+        function addPipe() {
+            pipes.push(new Pipe());
+        }
+
+        // Initial pipe
+        addPipe();
+        let pipeInterval = setInterval(addPipe, 2500); // Tăng từ 2000ms lên 2500ms
+
+        function draw() {
+            // Draw background
+            if (groundImg.complete) {
+                ctx.drawImage(groundImg, 0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.fillStyle = '#70c5ce';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Draw bird
+            if (birdImg.complete) {
+                ctx.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
+            }
+
+            // Update bird position
+            bird.velocity += bird.gravity;
+            bird.y += bird.velocity;
+
+            // Draw and update pipes
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                let pipe = pipes[i];
+                
+                if (pipeTopImg.complete && pipeBottomImg.complete) {
+                    ctx.drawImage(pipeTopImg, pipe.x, 0, pipeWidth, pipe.height);
+                    ctx.drawImage(pipeBottomImg, pipe.x, pipe.height + pipeGap, pipeWidth, canvas.height - (pipe.height + pipeGap));
+                }
+
+                pipe.x -= pipe.speed;
+
+                // Collision detection
+                if (bird.x + bird.width > pipe.x && 
+                    bird.x < pipe.x + pipeWidth &&
+                    (bird.y < pipe.height || bird.y + bird.height > pipe.height + pipeGap)) {
+                    gameOver = true;
+                }
+
+                // Score
+                if (pipe.x + pipeWidth < bird.x && !pipe.passed) {
+                    score++;
+                    pipe.passed = true;
+                }
+
+                // Remove off-screen pipes
+                if (pipe.x + pipeWidth < 0) {
+                    pipes.splice(i, 1);
+                }
+            }
+
+            // Ground collision
+            if (bird.y + bird.height > canvas.height || bird.y < 0) {
+                gameOver = true;
+            }
+
+            // Draw score
+            ctx.fillStyle = 'black';
+            ctx.font = '20px Arial';
+            ctx.fillText('Score: ' + score, 10, 30);
+
+            // Game over
+            if (gameOver) {
+                ctx.fillText('Game Over! Press R to restart', 70, canvas.height/2);
+                clearInterval(pipeInterval);
+                return;
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        function resetGame() {
+            bird.y = 300;
+            bird.velocity = 0;
+            pipes = [];
+            score = 0;
+            gameOver = false;
+            addPipe();
+            pipeInterval = setInterval(addPipe, 2500);
+            draw();
+        }
+
+        // Check if all images are loaded
+        function checkImagesLoaded() {
+            imagesLoaded++;
+            if (imagesLoaded === 4) {
+                draw();
+            }
+        }
+
+        birdImg.onload = checkImagesLoaded;
+        pipeTopImg.onload = checkImagesLoaded;
+        pipeBottomImg.onload = checkImagesLoaded;
+        groundImg.onload = checkImagesLoaded;
+    </script>
+</body>
+</html>
