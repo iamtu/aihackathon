@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Local MP3 Player</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:18px;background:#f6f7fb;color:#111}
+    .app{max-width:900px;margin:0 auto;background:white;padding:18px;border-radius:12px;box-shadow:0 6px 20px rgba(10,20,40,0.08)}
+    h1{font-size:20px;margin:0 0 12px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    button,input,select{padding:8px 10px;border-radius:8px;border:1px solid #d9e0ef;background:white}
+    input[type=file]{padding:6px}
+    .track-list{margin-top:12px}
+    .track{padding:8px;border-radius:8px;margin-bottom:8px;background:#fafbfd;border:1px solid #eef2ff;display:flex;align-items:center;justify-content:space-between}
+    .track .meta{flex:1;margin-right:12px}
+    .seek{width:100%;}
+    .segments{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+    small{color:#556}
+    .time{min-width:120px;text-align:center}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Local MP3 Player</h1>
+    <div class="controls">
+      <label title="Chọn 1 hoặc nhiều file mp3">Chọn file
+        <input id="filePicker" type="file" accept="audio/*" multiple />
+      </label>
+
+      <label title="Chọn cả thư mục (Chrome/Edge/Samsung hỗ trợ)">Mở folder
+        <input id="folderPicker" type="file" webkitdirectory directory multiple style="display:block"/>
+      </label>
+
+      <button id="prevBtn">⏮</button>
+      <button id="playBtn">▶️</button>
+      <button id="nextBtn">⏭</button>
+
+      <button id="gotoBtn">Goto hh:mm</button>
+
+      <label title="Tự động lưu vị trí phát khi đóng (localStorage)">Lưu vị trí
+        <input id="rememberToggle" type="checkbox" checked />
+      </label>
+
+    </div>
+
+    <div>
+      <input id="seek" class="seek" type="range" min="0" max="100" value="0" step="0.1" />
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+        <div class="time"><span id="curTime">0:00:00</span> / <span id="dur">0:00:00</span></div>
+        <div><small id="fileInfo">No file</small></div>
+      </div>
+    </div>
+
+    <div class="track-list" id="trackList"></div>
+
+    <div style="margin-top:12px">
+      <strong>Phần (khoảng 1 giờ / phần):</strong>
+      <div id="segments" class="segments"></div>
+    </div>
+
+    <audio id="audio" crossorigin></audio>
+  </div>
+
+<script>
+/*
+  Tính năng đã cài đặt:
+  1) Chọn file mp3 bất kỳ (PC & mobile) - hỗ trợ nhiều file
+  2) Mở folder (webkitdirectory) — lưu ý: chỉ trình duyệt hỗ trợ
+  3) Nút Goto -> nhập hh:mm -> seek
+  4) Nhớ vị trí phát khi thoát (localStorage per file) nếu bật toggle
+  5) Nếu file dài, tự chia phần ~1 giờ và tạo button để di chuyển
+*/
+
+const filePicker = document.getElementById('filePicker');
+const folderPicker = document.getElementById('folderPicker');
+const trackListEl = document.getElementById('trackList');
+const audio = document.getElementById('audio');
+const playBtn = document.getElementById('playBtn');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const seek = document.getElementById('seek');
+const curTimeEl = document.getElementById('curTime');
+const durEl = document.getElementById('dur');
+const fileInfo = document.getElementById('fileInfo');
+const gotoBtn = document.getElementById('gotoBtn');
+const segmentsEl = document.getElementById('segments');
+const rememberToggle = document.getElementById('rememberToggle');
+
+let tracks = []; // {file, url, title, id}
+let curIndex = -1;
+let saveTimer = null;
+let revokingUrl = null;
+
+function idForFile(file){
+  // key to store in localStorage: use name+size+lastModified to uniquely identify
+  return btoa(encodeURIComponent(file.name + '|' + file.size + '|' + file.lastModified));
+}
+
+function niceTime(s){
+  if (!isFinite(s)) s = 0;
+  s = Math.floor(s);
+  const h = Math.floor(s/3600); const m = Math.floor((s%3600)/60); const sec = s%60;
+  return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function refreshTrackList(){
+  trackListEl.innerHTML = '';
+  tracks.forEach((t, i) =>{
+    const d = document.createElement('div'); d.className='track';
+    const meta = document.createElement('div'); meta.className='meta';
+    meta.innerHTML = `<strong>${escapeHtml(t.title)}</strong><br/><small>${t.file.webkitRelativePath || t.file.name}</small>`;
+    const btns = document.createElement('div');
+    const play = document.createElement('button'); play.textContent = (i===curIndex)?'Playing':'Play';
+    play.onclick = ()=>{playIndex(i)};
+    const del = document.createElement('button'); del.textContent='Remove'; del.onclick=()=>{removeIndex(i)};
+    btns.appendChild(play); btns.appendChild(del);
+    d.appendChild(meta); d.appendChild(btns);
+    trackListEl.appendChild(d);
+  });
+}
+
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function addFiles(fileList){
+  const arr = Array.from(fileList).filter(f=>/audio\//.test(f.type) || /\.mp3$/i.test(f.name));
+  arr.forEach(f=>{
+    const url = URL.createObjectURL(f);
+    tracks.push({file:f, url, title: f.name, id: idForFile(f)});
+  });
+  if (curIndex === -1 && tracks.length>0) playIndex(0);
+  refreshTrackList();
+}
+
+filePicker.addEventListener('change', e=>{
+  if (e.target.files.length) addFiles(e.target.files);
+  filePicker.value='';
+});
+
+folderPicker.addEventListener('change', e=>{
+  if (e.target.files.length) addFiles(e.target.files);
+  folderPicker.value='';
+});
+
+function removeIndex(i){
+  if (tracks[i].url) URL.revokeObjectURL(tracks[i].url);
+  tracks.splice(i,1);
+  if (i===curIndex) {
+    if (tracks.length>0) playIndex(Math.min(i, tracks.length-1));
+    else stopPlayback();
+  } else if (i<curIndex) curIndex--;
+  refreshTrackList();
+}
+
+function stopPlayback(){
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
+  curIndex = -1;
+  fileInfo.textContent = 'No file';
+  segmentsEl.innerHTML='';
+  refreshTrackList();
+  playBtn.textContent='▶️';
+}
+
+function playIndex(i){
+  if (i<0 || i>=tracks.length) return;
+  const t = tracks[i];
+  if (curIndex!==i){
+    // switch
+    if (revokingUrl) { try{ URL.revokeObjectURL(revokingUrl);}catch(e){} revokingUrl=null; }
+    curIndex = i;
+    audio.src = t.url;
+    audio.load();
+    fileInfo.textContent = t.file.webkitRelativePath || t.file.name;
+    segmentsEl.innerHTML='';
+    // after metadata loaded we'll restore position and make segments
+    audio.onloadedmetadata = ()=>{
+      durEl.textContent = niceTime(audio.duration);
+      generateSegments(Math.ceil(audio.duration));
+      // restore position
+      if (rememberToggle.checked){
+        const key = 'pos_'+t.id;
+        const saved = localStorage.getItem(key);
+        if (saved){
+          const pos = parseFloat(saved);
+          if (isFinite(pos) && pos>0 && pos < audio.duration) {
+            audio.currentTime = pos;
+          }
+        }
+      }
+    };
+  }
+  audio.play().then(()=>{ playBtn.textContent='⏸'; }).catch(err=>{ console.warn('play failed',err); playBtn.textContent='▶️'; });
+  refreshTrackList();
+}
+
+playBtn.addEventListener('click', ()=>{
+  if (!tracks.length) return alert('Chưa chọn file.');
+  if (audio.paused) audio.play().then(()=>playBtn.textContent='⏸').catch(()=>{});
+  else audio.pause();
+});
+
+prevBtn.addEventListener('click', ()=>{
+  if (curIndex>0) playIndex(curIndex-1);
+});
+nextBtn.addEventListener('click', ()=>{
+  if (curIndex < tracks.length-1) playIndex(curIndex+1);
+});
+
+audio.addEventListener('play', ()=> playBtn.textContent='⏸');
+audio.addEventListener('pause', ()=> playBtn.textContent='▶️');
+
+audio.addEventListener('timeupdate', ()=>{
+  if (audio.duration && isFinite(audio.duration)){
+    seek.max = audio.duration;
+    seek.value = audio.currentTime;
+    curTimeEl.textContent = niceTime(audio.currentTime);
+  }
+});
+
+seek.addEventListener('input', ()=>{
+  if (!isNaN(seek.value) && isFinite(seek.value)) audio.currentTime = seek.value;
+});
+
+// Save current position periodically and on unload
+function savePosition(){
+  if (!rememberToggle.checked) return;
+  if (curIndex<0) return;
+  const t = tracks[curIndex];
+  if (!t) return;
+  const key = 'pos_'+t.id;
+  try{ localStorage.setItem(key, String(audio.currentTime)); }catch(e){console.warn('storage error',e)}
+}
+
+setInterval(savePosition, 2000);
+window.addEventListener('beforeunload', savePosition);
+// also on visibility change
+document.addEventListener('visibilitychange', ()=>{ if (document.hidden) savePosition(); });
+
+// Goto hh:mm
+gotoBtn.addEventListener('click', ()=>{
+  const v = prompt('Nhập thời gian theo định dạng hh:mm (ví dụ 01:30 = 1 giờ 30 phút)');
+  if (!v) return;
+  const m = v.trim().match(/^(\d{1,2}):(\d{1,2})$/);
+  if (!m) return alert('Sai định dạng. Dùng hh:mm');
+  const hours = parseInt(m[1],10); const mins = parseInt(m[2],10);
+  const secs = hours*3600 + mins*60;
+  if (isFinite(secs) && audio.duration && secs <= audio.duration) audio.currentTime = secs;
+  else if (isFinite(secs) && audio.duration && secs > audio.duration) audio.currentTime = audio.duration - 1;
+});
+
+// When track ends -> advance
+audio.addEventListener('ended', ()=>{
+  savePosition();
+  if (curIndex < tracks.length-1) playIndex(curIndex+1);
+});
+
+// Generate segments with ~1 hour per segment
+function generateSegments(durationSeconds){
+  segmentsEl.innerHTML='';
+  const per = 3600; // 1 hour
+  const parts = Math.max(1, Math.ceil(durationSeconds / per));
+  for (let i=0;i<parts;i++){
+    const start = i*per;
+    const end = Math.min(durationSeconds, (i+1)*per);
+    const btn = document.createElement('button');
+    btn.textContent = `Phần ${i+1} (${niceTime(start)} - ${niceTime(end)})`;
+    btn.onclick = ()=>{ audio.currentTime = start; audio.play(); };
+    segmentsEl.appendChild(btn);
+  }
+}
+
+// Utility: when user chooses a new file list, we want a stable ordering. Files from folderpicker will include webkitRelativePath.
+
+// Small UX: if user taps a track in list, it will call playIndex already.
+
+// Cleanup object URLs when removing all files or replacing
+
+// On load, try to restore last opened playlist (optional enhancement) - omitted for simplicity
+
+</script>
+</body>
+</html>
