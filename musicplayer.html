@@ -9,6 +9,7 @@
     .app{max-width:900px;margin:0 auto;background:white;padding:18px;border-radius:12px;box-shadow:0 6px 20px rgba(10,20,40,0.08)}
     h1{font-size:20px;margin:0 0 12px}
     .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .controls button { padding: 12px 16px; font-size: 16px; }
     button,input,select{padding:8px 10px;border-radius:8px;border:1px solid #d9e0ef;background:white}
     input[type=file]{padding:6px}
     .track-list{margin-top:12px}
@@ -22,25 +23,18 @@
 </head>
 <body>
   <div class="app">
-    <h1>Local MP3 Player</h1>
+    <h1>Local MP3 Player v9326</h1>
     <div class="controls">
       <label title="Chọn 1 hoặc nhiều file mp3">Chọn file
         <input id="filePicker" type="file" accept="audio/*" multiple />
       </label>
 
-      <label title="Chọn cả thư mục (Chrome/Edge/Samsung hỗ trợ)">Mở folder
-        <input id="folderPicker" type="file" webkitdirectory directory multiple style="display:block"/>
-      </label>
-
       <button id="prevBtn">⏮</button>
       <button id="playBtn">▶️</button>
       <button id="nextBtn">⏭</button>
+      <button id="back30Btn">⏮ 30s</button>
 
       <button id="gotoBtn">Goto hh:mm</button>
-
-      <label title="Tự động lưu vị trí phát khi đóng (localStorage)">Lưu vị trí
-        <input id="rememberToggle" type="checkbox" checked />
-      </label>
 
     </div>
 
@@ -68,12 +62,11 @@
   1) Chọn file mp3 bất kỳ (PC & mobile) - hỗ trợ nhiều file
   2) Mở folder (webkitdirectory) — lưu ý: chỉ trình duyệt hỗ trợ
   3) Nút Goto -> nhập hh:mm -> seek
-  4) Nhớ vị trí phát khi thoát (localStorage per file) nếu bật toggle
+  4) Nhớ vị trí phát khi thoát (localStorage per file)
   5) Nếu file dài, tự chia phần ~1 giờ và tạo button để di chuyển
 */
 
 const filePicker = document.getElementById('filePicker');
-const folderPicker = document.getElementById('folderPicker');
 const trackListEl = document.getElementById('trackList');
 const audio = document.getElementById('audio');
 const playBtn = document.getElementById('playBtn');
@@ -85,7 +78,7 @@ const durEl = document.getElementById('dur');
 const fileInfo = document.getElementById('fileInfo');
 const gotoBtn = document.getElementById('gotoBtn');
 const segmentsEl = document.getElementById('segments');
-const rememberToggle = document.getElementById('rememberToggle');
+const back30Btn = document.getElementById('back30Btn');
 
 let tracks = []; // {file, url, title, id}
 let curIndex = -1;
@@ -137,11 +130,6 @@ filePicker.addEventListener('change', e=>{
   filePicker.value='';
 });
 
-folderPicker.addEventListener('change', e=>{
-  if (e.target.files.length) addFiles(e.target.files);
-  folderPicker.value='';
-});
-
 function removeIndex(i){
   if (tracks[i].url) URL.revokeObjectURL(tracks[i].url);
   tracks.splice(i,1);
@@ -179,14 +167,12 @@ function playIndex(i){
       durEl.textContent = niceTime(audio.duration);
       generateSegments(Math.ceil(audio.duration));
       // restore position
-      if (rememberToggle.checked){
-        const key = 'pos_'+t.id;
-        const saved = localStorage.getItem(key);
-        if (saved){
-          const pos = parseFloat(saved);
-          if (isFinite(pos) && pos>0 && pos < audio.duration) {
-            audio.currentTime = pos;
-          }
+      const key = 'pos_'+t.id;
+      const saved = localStorage.getItem(key);
+      if (saved){
+        const pos = parseFloat(saved);
+        if (isFinite(pos) && pos>0 && pos < audio.duration) {
+          audio.currentTime = pos;
         }
       }
     };
@@ -208,6 +194,10 @@ nextBtn.addEventListener('click', ()=>{
   if (curIndex < tracks.length-1) playIndex(curIndex+1);
 });
 
+back30Btn.addEventListener('click', ()=>{
+  audio.currentTime = Math.max(0, audio.currentTime - 30);
+});
+
 audio.addEventListener('play', ()=> playBtn.textContent='⏸');
 audio.addEventListener('pause', ()=> playBtn.textContent='▶️');
 
@@ -225,7 +215,6 @@ seek.addEventListener('input', ()=>{
 
 // Save current position periodically and on unload
 function savePosition(){
-  if (!rememberToggle.checked) return;
   if (curIndex<0) return;
   const t = tracks[curIndex];
   if (!t) return;
