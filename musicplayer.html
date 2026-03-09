@@ -29,6 +29,10 @@
         <input id="filePicker" type="file" accept="audio/*" multiple />
       </label>
 
+      <label title="Chọn cả thư mục (Chrome/Edge/Samsung hỗ trợ)">Mở folder
+        <input id="folderPicker" type="file" webkitdirectory directory multiple style="display:block"/>
+      </label>
+
       <button id="prevBtn">⏮</button>
       <button id="playBtn">▶️</button>
       <button id="nextBtn">⏭</button>
@@ -67,6 +71,7 @@
 */
 
 const filePicker = document.getElementById('filePicker');
+const folderPicker = document.getElementById('folderPicker');
 const trackListEl = document.getElementById('trackList');
 const audio = document.getElementById('audio');
 const playBtn = document.getElementById('playBtn');
@@ -128,6 +133,11 @@ function addFiles(fileList){
 filePicker.addEventListener('change', e=>{
   if (e.target.files.length) addFiles(e.target.files);
   filePicker.value='';
+});
+
+folderPicker.addEventListener('change', e=>{
+  if (e.target.files.length) addFiles(e.target.files);
+  folderPicker.value='';
 });
 
 function removeIndex(i){
